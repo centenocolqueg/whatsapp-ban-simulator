@@ -1,6 +1,7 @@
 import os
 import random
 import time
+import asyncio
 from telegram import Update
 from telegram.ext import Application, CommandHandler, ContextTypes
 
@@ -33,13 +34,13 @@ async def ban_simulator(update: Update, context: ContextTypes.DEFAULT_TYPE):
     
     target_number = " ".join(context.args)
     msg = await update.message.reply_text(f"🔍 Conectando con nodos de reporte simulados para {target_number}...")
-    time.sleep(2)
+    await asyncio.sleep(2)
     await msg.edit_text("🛰️ Generando firmas de Spam artificiales (1/3)...")
-    time.sleep(2)
+    await asyncio.sleep(2)
     await msg.edit_text("⚙️ Enviando 500 reportes simulados a la cola de revisión (2/3)...")
-    time.sleep(2)
+    await asyncio.sleep(2)
     await msg.edit_text("⚡ Forzando desconexión del token de sesión ficticio (3/3)...")
-    time.sleep(1.5)
+    await asyncio.sleep(1.5)
     
     final_status = random.choice([
         f"⚠️ **SIMULACIÓN EXITOSA** ⚠️\n\nEl sistema automatizado ficticio reporta que el número {target_number} ha entrado en revisión de términos.",
@@ -54,11 +55,11 @@ async def unban_simulator(update: Update, context: ContextTypes.DEFAULT_TYPE):
         
     target_number = " ".join(context.args)
     msg = await update.message.reply_text(f"📩 Redactando correo de apelación simulado para {target_number}...")
-    time.sleep(2)
+    await asyncio.sleep(2)
     await msg.edit_text("🔑 Generando ID de soporte técnico falso...")
-    time.sleep(2)
+    await asyncio.sleep(2)
     await msg.edit_text("🔄 Modificando estado en la base de datos simulada...")
-    time.sleep(1.5)
+    await asyncio.sleep(1.5)
     await msg.edit_text(f"✅ **Simulación de Unban terminada**\n\nSe ha enviado la solicitud ficticia de reactivación para {target_number}.")
 
 async def check_simulator(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -68,7 +69,7 @@ async def check_simulator(update: Update, context: ContextTypes.DEFAULT_TYPE):
         
     target_number = " ".join(context.args)
     msg = await update.message.reply_text(f"🔎 Analizando metadatos públicos de {target_number}...")
-    time.sleep(2)
+    await asyncio.sleep(2)
     
     antiban = random.choice(["Activado ✅", "Desactivado ❌"])
     vulnerabilidad = random.choice(["Baja", "Media", "Alta ⚠️"])
@@ -86,14 +87,35 @@ def main():
     if not TOKEN:
         print("Error crítico: Variable TELEGRAM_TOKEN no configurada.")
         return
+    
     app = Application.builder().token(TOKEN).build()
+    
     app.add_handler(CommandHandler("start", start))
     app.add_handler(CommandHandler("ayuda", ayuda))
     app.add_handler(CommandHandler("ban", ban_simulator))
     app.add_handler(CommandHandler("unban", unban_simulator))
     app.add_handler(CommandHandler("check", check_simulator))
+    
     print("El simulador está corriendo...")
-    app.run_polling()
+    
+    try:
+        loop = asyncio.get_event_loop()
+    except RuntimeError:
+        loop = asyncio.new_event_loop()
+        asyncio.set_event_loop(loop)
+        
+    loop.run_until_complete(app.initialize())
+    loop.run_until_complete(app.updater.start_polling())
+    loop.run_until_complete(app.start())
+    
+    try:
+        loop.run_forever()
+    except (KeyboardInterrupt, SystemExit):
+        pass
+    finally:
+        loop.run_until_complete(app.stop())
+        loop.run_until_complete(app.updater.stop())
+        loop.run_until_complete(app.shutdown())
 
 if __name__ == "__main__":
     main()
