@@ -1,109 +1,188 @@
 import os
 import random
 import asyncio
-from telegram import Update
-from telegram.ext import Application, CommandHandler, ContextTypes
+from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
+from telegram.ext import Application, CommandHandler, ContextTypes, MessageHandler, filters, CallbackQueryHandler
 
+# Token de acceso de Telegram (Gestionado por Render)
 TOKEN = os.environ.get("TELEGRAM_TOKEN")
 
+# ID de Administrador verificado
+ADMIN_ID = 8315143020  
+
+# Registro temporal en caché para usuarios con licencia aprobada
+usuarios_premium = set()
+
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Mensaje inicial estilo consola de comandos avanzada"""
+    """Interfaz principal del sistema con verificación de privilegios"""
+    user_id = update.message.from_user.id
+    estado_cuenta = "👑 PREMIUM (ACTIVO)" if user_id in usuarios_premium or user_id == ADMIN_ID else "🔒 LICENCIA NO DETECTADA"
+    
     await update.message.reply_text(
-        "⚙️ **METASPLOIT WA-AUDIT INTERFACE v4.0.1** ⚙️\n"
-        "====================================\n\n"
-        "💻 `Consola de pruebas de estrés y vulnerabilidad de red activa.`\n\n"
-        "📌 **Módulos de comandos autorizados:**\n"
-        "🔹 `/ban <número>` ➔ Iniciar vector de ataque por reportes masivos (DoS-Spam)\n"
-        "🔹 `/unban <número>` ➔ Ejecutar bypass de apelación automatizada vía SMTP\n"
-        "🔹 `/check <número>` ➔ Escanear puertos y cifrado de extremo a extremo\n"
-        "🔹 `/status` ➔ Verificar la integridad de los proxys de inyección\n"
+        f"⚙️ **METASPLOIT WA-AUDIT INTERFACE v4.0.1** ⚙️\n"
+        f"====================================\n\n"
+        f"💻 `Consola de pruebas de estrés activa.`\n"
+        f"👤 **Estado de tu Licencia:** {estado_cuenta}\n\n"
+        f"📌 **Módulos de comandos disponibles:**\n"
+        f"🔹 `/ban <número>` ➔ Vector de ataque por reportes masivos\n"
+        f"🔹 `/unban <número>` ➔ Ejecutar bypass de apelación SMTP\n"
+        f"🔹 `/check <número>` ➔ Escanear vulnerabilidad y firewall\n"
+        f"🔹 `/status` ➔ Estado general de los servidores de red\n\n"
+        f"🛒 Si tu cuenta no está activa, escribe `/comprar` para obtener acceso vía Yape."
     )
+
+async def comprar(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Módulo de pagos que despliega el costo de 30 Soles y las instrucciones de Yape"""
+    texto_pago = (
+        "CNY-02 💳 **SISTEMA DE ADQUISICIÓN DE LICENCIAS** 💳\n"
+        "====================================\n\n"
+        "💵 **Precio de Licencia Premium:** S/. 30.00 PEN\n"
+        "📌 **Instrucciones para la activación:**\n"
+        "1. Realiza el abono correspondiente mediante **Yape** al número corporativo asociado.\n"
+        "2. Toma una captura de pantalla clara donde se visualice el número de operación y la fecha.\n"
+        "3. **Envía esa captura de pantalla (imagen) directamente a este chat del bot.**\n\n"
+        "⏳ Una vez enviada la imagen, el sistema enviará tu recibo a nuestro nodo central para su verificación instantánea."
+    )
+    
+    # Comprobación del archivo yape.png en el repositorio
+    if os.path.exists("yape.png"):
+        try:
+            await update.message.reply_photo(photo=open("yape.png", "rb"), caption=texto_pago, parse_mode="Markdown")
+            return
+        except Exception:
+            pass
+    await update.message.reply_text(texto_pago, parse_mode="Markdown")
+
+async def recibir_comprobante(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Intercepta imágenes de los clientes y las enruta a tu chat privado con paneles de decisión"""
+    user = update.message.from_user
+    
+    if user.id == ADMIN_ID:
+        await update.message.reply_text("⚡ Modo Administrador detectado. Comprobante de prueba omitido.")
+        return
+
+    if update.message.photo:
+        photo_file = await update.message.photo[-1].get_file()
+        
+        # Inyección de teclado interactivo en tu chat privado
+        keyboard = [
+            [
+                InlineKeyboardButton("✅ Aprobar Licencia", callback_data=f"aprobar_{user.id}"),
+                InlineKeyboardButton("❌ Rechazar Recibo", callback_data=f"rechazar_{user.id}")
+            ]
+        ]
+        reply_markup = InlineKeyboardMarkup(keyboard)
+        
+        await context.bot.send_message(
+            chat_id=ADMIN_ID,
+            text=f"🔔 **NUEVO COMPROBANTE ENVIADO A REVISIÓN**\n\n"
+                 f"👤 **Cliente:** {user.first_name}\n"
+                 f"🆔 **ID de Usuario:** `{user.id}`\n"
+                 f"🔗 **Alias:** @{user.username if user.username else 'Sin_Username'}\n"
+                 f"📋 _Verifica tu aplicación de Yape antes de presionar el botón._"
+        )
+        await context.bot.send_photo(
+            chat_id=ADMIN_ID,
+            photo=photo_file.file_id,
+            reply_markup=reply_markup
+        )
+        
+        await update.message.reply_text("📥 **Recibo recibido con éxito.** El documento ha sido encolado en nuestro sistema de soporte técnico. Se te notificará en este chat en cuanto sea validado.")
+
+async def procesar_botones(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Mapea los eventos de clic en los botones de aprobación de tu chat"""
+    query = update.callback_query
+    await query.answer()
+    
+    if query.from_user.id != ADMIN_ID:
+        return
+        
+    accion, cliente_id = query.data.split("_")
+    cliente_id_int = int(cliente_id)
+    
+    if accion == "aprobar":
+        usuarios_premium.add(cliente_id_int)
+        
+        try:
+            await context.bot.send_message(
+                chat_id=cliente_id_int,
+                text="✅ **¡LICENCIA CONFIGURADA CON ÉXITO!**\n\n"
+                     "Tu pago ha sido validado correctamente en la base de datos raíz.\n"
+                     "Los módulos de auditoría ya están desbloqueados. Escribe `/start` para inicializar el menú de comandos Premium."
+            )
+            await query.edit_message_caption(caption=f"✅ Licencia activada con éxito para el ID: {cliente_id}")
+        except Exception:
+            await query.edit_message_caption(caption=f"✅ Aprobado, pero el usuario no pudo ser notificado (Chat cerrado).")
+            
+    elif accion == "rechazar":
+        usuarios_premium.discard(cliente_id_int)
+        
+        try:
+            await context.bot.send_message(
+                chat_id=cliente_id_int,
+                text="❌ **AUTENTICACIÓN DE COMPROBANTE FALLIDA**\n\n"
+                     "El recibo de Yape enviado no ha podido ser validado en el sistema de cuentas (monto incorrecto o inexistente).\n"
+                     "Si consideras que es un error, genera un nuevo intento con una captura válida usando `/comprar`."
+            )
+            await query.edit_message_caption(caption=f"❌ Transacción rechazada para el ID: {cliente_id}")
+        except Exception:
+            await query.edit_message_caption(caption=f"❌ Rechazado, cliente inaccesible.")
+
+def es_premium(user_id):
+    return user_id in usuarios_premium or user_id == ADMIN_ID
 
 async def ban_simulator(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Vector de ataque con terminología técnica avanzada"""
+    """Vector de comandos bajo demanda de auditoría"""
+    user_id = update.message.from_user.id
+    if not es_premium(user_id):
+        await update.message.reply_text("🔒 **ACCESO DENEGADO:** Este comando requiere una suscripción Premium activa. Adquiérela ejecutando `/comprar`.")
+        return
+        
     if not context.args:
-        await update.message.reply_text("❌ `ERROR_CODE_01: Requiere argumento [número_objetivo]`\nUso: `/ban +51999888777`")
+        await update.message.reply_text("❌ `ERROR: Falta el número objetivo.` Uso: `/ban +51999888777`")
         return
     
     target_number = " ".join(context.args)
-    msg = await update.message.reply_text(f"🛰️ `[CONNECTING]` Estableciendo túnel proxy SSH cifrado hacia {target_number}...")
+    msg = await update.message.reply_text(f"🛰️ `[CONNECTING]` Estableciendo túnel proxy cifrado hacia {target_number}...")
     await asyncio.sleep(2)
-    
-    await msg.edit_text("⚙️ `[PAYLOAD]` Inyectando paquetes de reporte automatizados a los servidores de Meta...")
+    await msg.edit_text("⚙️ `[PAYLOAD]` Inyectando ráfaga de paquetes de reporte masivos...")
     await asyncio.sleep(2)
-    
-    await msg.edit_text("🔥 `[ATTACK]` Forzando bucle de verificación de token SMS (Fuzzing)...")
-    await asyncio.sleep(2.5)
-    
-    await msg.edit_text("⚡ `[BYPASS]` Saltando cortafuegos Cloudflare y sistemas anti-spam...")
-    await asyncio.sleep(2)
-    
-    # Resultado directo e inmersivo
-    final_status = random.choice([
-        f"⚠️ **[VECTOR DE ATAQUE COMPLETADO]** ⚠️\n\n"
-        f"📊 **Resultado:** Solicitud de suspensión encolada con éxito.\n"
-        f"📱 **Objetivo:** {target_number}\n"
-        f"🆔 **ID de Ticket de Reporte:** #{random.randint(100000, 999999)}\n"
-        f"⏱️ **Tiempo estimado de revisión:** 2 a 4 horas en servidores Meta.",
-        
-        f"❌ **[ATAQUE RECHAZADO]**\n\n"
-        f"El cortafuegos interno de Meta ha interceptado la ráfaga de paquetes para {target_number}. Código de mitigación: `SEC_BLOCK_882`."
-    ])
-    await msg.edit_text(final_status)
+    await msg.edit_text(f"⚠️ **[COMPLETADO]** Solicitud de suspensión técnica encolada para {target_number}.")
 
 async def unban_simulator(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Bypass de soporte técnico"""
+    """Módulo de bypass de soporte"""
+    user_id = update.message.from_user.id
+    if not es_premium(user_id):
+        await update.message.reply_text("🔒 **ACCESO DENEGADO:** Este comando requiere una suscripción Premium activa. Adquiérela ejecutando `/comprar`.")
+        return
+        
     if not context.args:
-        await update.message.reply_text("❌ `ERROR_CODE_02: Requiere argumento [número_objetivo]`\nUso: `/unban +51999888777`")
+        await update.message.reply_text("❌ `ERROR: Falta el número objetivo.` Uso: `/unban +51999888777`")
         return
         
     target_number = " ".join(context.args)
-    msg = await update.message.reply_text(f"📩 `[EXPLOIT]` Generando cabeceras de correo falsificadas para el soporte de Meta...")
+    msg = await update.message.reply_text(f"📩 `[EXPLOIT]` Remitiendo peticiones SMTP de restablecimiento para {target_number}...")
     await asyncio.sleep(2)
-    
-    await msg.edit_text("🔑 `[TOKEN]` Extrayendo ID de empleado de soporte técnico mediante ingeniería social...")
-    await asyncio.sleep(2)
-    
-    await msg.edit_text("🔄 `[DATABASE]` Forzando reescritura del estado de la cuenta en caché raíz...")
-    await asyncio.sleep(1.5)
-    
-    await msg.edit_text(
-        f"✅ **[MÓDULO UNBAN TERMINADO]**\n\n"
-        f"Petición de reactivación inyectada en el servidor raíz para {target_number}.\n"
-        f"Estado actual del nodo: `CUENTA_LIBERADA`."
-    )
+    await msg.edit_text(f"✅ **[COMPLETADO]** Orden de desbloqueo raíz enviada para {target_number}.")
 
 async def check_simulator(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Escáner de vulnerabilidad"""
+    """Escáner de vulnerabilidades de red"""
+    user_id = update.message.from_user.id
+    if not es_premium(user_id):
+        await update.message.reply_text("🔒 **ACCESO DENEGADO:** Este comando requiere una suscripción Premium activa. Adquiérela ejecutando `/comprar`.")
+        return
+        
     if not context.args:
-        await update.message.reply_text("❌ `ERROR_CODE_03: Requiere argumento [número_objetivo]`\nUso: `/check +51999888777`")
+        await update.message.reply_text("❌ `ERROR: Falta el número objetivo.` Uso: `/check +51999888777`")
         return
         
     target_number = " ".join(context.args)
-    msg = await update.message.reply_text(f"🔎 `[SCAN]` Extrayendo metadatos públicos y certificados SSL de {target_number}...")
+    msg = await update.message.reply_text(f"🔎 `[SCAN]` Analizando puertos del nodo remoto {target_number}...")
     await asyncio.sleep(2)
-    
-    antiban = random.choice(["Cifrado Débil (Vulnerable) ❌", "Cifrado Completo (Protegido) ✅"])
-    vulnerabilidad = random.choice(["Baja (Parcheado)", "Crítica (Inyección de Spam posible) ⚠️"])
-    
-    await msg.edit_text(
-        f"📊 **REPORTE TÉCNICO DE AUDITORÍA DE RED**\n"
-        f"====================================\n\n"
-        f"📱 **Nodo Objetivo:** {target_number}\n"
-        f"🛡️ **Firewall Antiban:** {antiban}\n"
-        f"☣️ **Nivel de Vulnerabilidad:** {vulnerabilidad}\n"
-        f"🖥️ **Servidor Asignado:** Proxy-Node-{random.randint(1,9)} (Región US-East)",
-        parse_mode="Markdown"
-    )
+    await msg.edit_text(f"📊 **REPORTE TÉCNICO:** {target_number}\n🛡️ Firewall Antiban: `Cifrado Débil (Vulnerable) ❌` \n☣️ Vulnerabilidad: `Crítica ⚠️` ")
 
 async def status(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Verificación de servidores"""
-    await update.message.reply_text(
-        "🟢 **ESTADO DE LOS SERVIDORES DE AUDITORÍA**\n\n"
-        "🛰️ Servidores Proxy: `ONLINE` (Latencia: 42ms)\n"
-        "📦 Base de datos de payloads: `ACTUALIZADA` v4.0\n"
-        "⚡ Nodos Render: `CONECTADOS` sin pérdidas"
-    )
+    await update.message.reply_text("🟢 **ESTADO DEL SISTEMA:** Servidores en línea (Latencia: 42ms). Nodos proxy operativos.")
 
 def main():
     if not TOKEN:
@@ -113,31 +192,17 @@ def main():
     app = Application.builder().token(TOKEN).build()
     
     app.add_handler(CommandHandler("start", start))
+    app.add_handler(CommandHandler("comprar", comprar))
     app.add_handler(CommandHandler("ban", ban_simulator))
     app.add_handler(CommandHandler("unban", unban_simulator))
     app.add_handler(CommandHandler("check", check_simulator))
     app.add_handler(CommandHandler("status", status))
     
-    print("El simulador avanzado está corriendo...")
+    app.add_handler(MessageHandler(filters.PHOTO, recibir_comprobante))
+    app.add_handler(CallbackQueryHandler(procesar_botones))
+    
+    print("El sistema con pasarela Yape integrada está corriendo...")
     
     try:
         loop = asyncio.get_event_loop()
     except RuntimeError:
-        loop = asyncio.new_event_loop()
-        asyncio.set_event_loop(loop)
-        
-    loop.run_until_complete(app.initialize())
-    loop.run_until_complete(app.updater.start_polling())
-    loop.run_until_complete(app.start())
-    
-    try:
-        loop.run_forever()
-    except (KeyboardInterrupt, SystemExit):
-        pass
-    finally:
-        loop.run_until_complete(app.stop())
-        loop.run_until_complete(app.updater.stop())
-        loop.run_until_complete(app.shutdown())
-
-if __name__ == "__main__":
-    main()
