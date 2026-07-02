@@ -34,7 +34,7 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
 async def comprar(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Módulo de pagos que despliega el costo de 30 Soles y las instrucciones de Yape"""
     texto_pago = (
-        "CNY-02 💳 **SISTEMA DE ADQUISICIÓN DE LICENCIAS** 💳\n"
+        "💳 **SISTEMA DE ADQUISICIÓN DE LICENCIAS** 💳\n"
         "====================================\n\n"
         "💵 **Precio de Licencia Premium:** S/. 30.00 PEN\n"
         "📌 **Instrucciones para la activación:**\n"
