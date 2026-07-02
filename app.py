@@ -1,21 +1,26 @@
 import os
 import threading
 from flask import Flask
-import bot
+import bot  # Importa directamente las funciones de tu bot.py
 
 app = Flask(__name__)
 
 @app.route('/')
 def home():
-    return "🟢 CENTRAL DE AUDITORÍA OPERATIVA"
+    # Página web obligatoria para mantener Render activo
+    return "🟢 CENTRAL DE AUDITORÍA OPERATIVA - INTERFAZ EN LÍNEA"
 
-def run_bot():
+def iniciar_bot_telegram():
+    # Ejecuta el bucle principal del bot dentro del mismo proceso
+    print("Iniciando bucle de Telegram...")
     bot.main()
 
 if __name__ == "__main__":
-    # Inicia el bot en un hilo separado para que Flask no lo detenga
-    threading.Thread(target=run_bot, daemon=True).start()
+    # Arranca el bot en un hilo nativo del mismo proceso antes de abrir la web
+    t = threading.Thread(target=iniciar_bot_telegram)
+    t.daemon = True
+    t.start()
     
-    # Inicia el servidor Web que Render exige de forma gratuita
+    # Arranca el servidor web en el puerto asignado por Render
     port = int(os.environ.get("PORT", 5000))
     app.run(host="0.0.0.0", port=port)
