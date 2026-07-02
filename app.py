@@ -1,16 +1,21 @@
-from flask import Flask
-import subprocess
 import os
+import threading
+from flask import Flask
+import bot
 
 app = Flask(__name__)
 
 @app.route('/')
 def home():
-    return "Bot Activo"
+    return "🟢 CENTRAL DE AUDITORÍA OPERATIVA"
+
+def run_bot():
+    bot.main()
 
 if __name__ == "__main__":
-    # Esto arranca tu bot de Telegram en paralelo
-    subprocess.Popen(["python", "bot.py"])
-    # Esto arranca la web falsa que Render exige
+    # Inicia el bot en un hilo separado para que Flask no lo detenga
+    threading.Thread(target=run_bot, daemon=True).start()
+    
+    # Inicia el servidor Web que Render exige de forma gratuita
     port = int(os.environ.get("PORT", 5000))
     app.run(host="0.0.0.0", port=port)
