@@ -1,26 +1,46 @@
 import os
-import threading
+import asyncio
 from flask import Flask
-import bot  # Importa directamente las funciones de tu bot.py
+import bot
 
-app = Flask(__name__)
+flask_app = Flask(__name__)
 
-@app.route('/')
+@flask_app.route('/')
 def home():
-    # Página web obligatoria para mantener Render activo
-    return "🟢 CENTRAL DE AUDITORÍA OPERATIVA - INTERFAZ EN LÍNEA"
+    return "🟢 CENTRAL DE AUDITORÍA OPERATIVA - PROXYS ACTIVOS"
 
-def iniciar_bot_telegram():
-    # Ejecuta el bucle principal del bot dentro del mismo proceso
-    print("Iniciando bucle de Telegram...")
-    bot.main()
+async def run_flask():
+    # Ejecuta el servidor web obligatorio para Render de manera asíncrona
+    config = flask_app.create_wsgi_app()
+    port = int(os.environ.get("PORT", 5000))
+    
+    # Arranca un servidor local simplificado compatible con async
+    from werkzeug.serving import make_server
+    server = make_server("0.0.0.0", port, flask_app, threaded=True)
+    print(f"Servidor Web iniciado en el puerto {port}")
+    
+    # Permite que el ciclo asíncrono no se bloquee
+    while True:
+        server.handle_request()
+        await asyncio.sleep(0.5)
+
+async def main():
+    # Inicializa el bot de Telegram de forma segura
+    telegram_app = bot.configurar_aplicacion()
+    if not telegram_app:
+        print("Error: No se configuró el token de Telegram.")
+        return
+
+    await telegram_app.initialize()
+    await telegram_app.updater.start_polling()
+    await telegram_app.start()
+    print("Bucle de Telegram conectado con éxito.")
+
+    # Ejecuta ambos servicios simultáneamente en el mismo bucle principal
+    await asyncio.gather(
+        run_flask(),
+        asyncio.Event().wait()  # Mantiene el bucle corriendo indefinidamente
+    )
 
 if __name__ == "__main__":
-    # Arranca el bot en un hilo nativo del mismo proceso antes de abrir la web
-    t = threading.Thread(target=iniciar_bot_telegram)
-    t.daemon = True
-    t.start()
-    
-    # Arranca el servidor web en el puerto asignado por Render
-    port = int(os.environ.get("PORT", 5000))
-    app.run(host="0.0.0.0", port=port)
+    asyncio.run(main())
