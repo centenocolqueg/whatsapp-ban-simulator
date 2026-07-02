@@ -27,7 +27,7 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 async def comprar(update: Update, context: ContextTypes.DEFAULT_TYPE):
     texto_pago = (
-        "💳 **SISTEMA DE ADQUISICIÓN DE LICENCIAS** 💳\n"
+        "CNY-02 💳 **SISTEMA DE ADQUISICIÓN DE LICENCIAS** 💳\n"
         "====================================\n\n"
         "💵 **Precio de Licencia Premium:** S/. 30.00 PEN\n"
         "📌 **Instrucciones para la activación:**\n"
@@ -62,7 +62,10 @@ async def recibir_comprobante(update: Update, context: ContextTypes.DEFAULT_TYPE
         
         await context.bot.send_message(
             chat_id=ADMIN_ID,
-            text=f"🔔 **NUEVO COMPROBANTE RECIBIDO**\n\n👤 **Cliente:** {user.first_name}\n🆔 **ID:** `{user.id}`\n🔗 **Alias:** @{user.username if user.username else 'Sin_Username'}"
+            text=f"🔔 **NUEVO COMPROBANTE RECIBIDO**\n\n"
+                 f"👤 **Cliente:** {user.first_name}\n"
+                 f"🆔 **ID:** `{user.id}`\n"
+                 f"🔗 **Alias:** @{user.username if user.username else 'Sin_Username'}"
         )
         await context.bot.send_photo(chat_id=ADMIN_ID, photo=photo_file.file_id, reply_markup=reply_markup)
         await update.message.reply_text("📥 **Recibo recibido con éxito.** El documento ha sido encolado. Se te notificará aquí en cuanto sea validado.")
@@ -140,8 +143,8 @@ async def check_simulator(update: Update, context: ContextTypes.DEFAULT_TYPE):
 async def status(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text("🟢 **ESTADO DEL SISTEMA:** Servidores en línea (Latencia: 42ms). Nodos proxy operativos.")
 
-def main():
-    if not TOKEN: return
+def configurar_aplicacion():
+    if not TOKEN: return None
     app = Application.builder().token(TOKEN).build()
     app.add_handler(CommandHandler("start", start))
     app.add_handler(CommandHandler("comprar", comprar))
@@ -151,9 +154,4 @@ def main():
     app.add_handler(CommandHandler("status", status))
     app.add_handler(MessageHandler(filters.PHOTO, recibir_comprobante))
     app.add_handler(CallbackQueryHandler(procesar_botones))
-    
-    print("Bot corriendo de forma limpia...")
-    app.run_polling(close_loop=False)
-
-if __name__ == "__main__":
-    main()
+    return app
